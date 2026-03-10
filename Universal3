@@ -1,0 +1,803 @@
+-- Initialisierung: Altes UI zerstören, falls vorhanden
+if Rayfield then
+    Rayfield:Destroy()
+end
+
+-- Credit Header
+print([[#######################################################################################
+            #                                                                                     #
+            #  CREDIT:      ##   Universal-Hub                                                    #
+            #  -Justin      ##   -Press K to Hide UI                                              #
+            #  -Winter      ##   -Press Q to Toggle Tracer                                        #
+            #                                                                                     #                                                                    
+            #######################################################################################]])
+
+-- Bibliotheken und Module laden
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/KienPC1234/Universal-Hub/main/Module/Rayfield.lua'))()
+getgenv().SecureMode = _G.SecureMode
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/KienPC1234/Universal-Hub/main/Module/ESP.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/KienPC1234/Universal-Hub/main/Module/Hitbox.lua"))()
+
+local loadstringTracersExists = pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Exunys/Tracers-Script/main/Tracers.lua"))()
+end)
+
+local loadstringAimBotExists = pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/Exunys/Aimbot-V3/main/src/Aimbot.lua"))()
+end)
+
+-- Status-Prüfung der Module
+if loadstringAimBotExists then
+    print("AimBot Loaded!")
+else
+    print("Error, Can't Load AimBot, using Backup")
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/KienPC1234/Universal-Hub/main/Backup/Aimbot.lua"))()
+end
+
+if loadstringTracersExists then
+    print("Tracer Loaded!")
+else
+    print("Error, Can't Load Tracer, using Backup")
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/KienPC1234/Universal-Hub/main/Backup/Tracers.lua"))()
+end
+
+-- Globale Variablen & Aimbot Setup
+_G.TracersVisible = false
+_G.DisableKey = nil
+_G.ModeSkipKey = nil
+
+ExunysDeveloperAimbot.Load()
+ExunysDeveloperAimbot.Settings.Enabled = false
+
+-- Funktion für Player Path
+local partNames = {} 
+function GetPlayerPath()
+    local player = game.Players:GetPlayers()[math.random(1, #game.Players:GetPlayers())]
+    local character = player.Character
+    if character then
+        local parts = character:GetDescendants() 
+        for _, part in ipairs(parts) do
+            if part:IsA("BasePart") then
+                if part.Name~="Handle" then   
+                    table.insert(partNames, part.Name)                  
+                end                
+            end
+        end
+    else
+        task.wait(1)
+        GetPlayerPath()
+    end
+end
+GetPlayerPath()
+
+-- Hauptfenster Erstellung
+local Window = Rayfield:CreateWindow({
+    Name = "Winter's | Universal Hub",
+    LoadingTitle = "WINTER | Hub",
+    LoadingSubtitle = "by Justin",
+    ConfigurationSaving = {
+       Enabled = true,
+       FolderName = "UH_Save", 
+       FileName = "Universal_HUB_Save"
+    },
+    Discord = {
+        Enabled = true,
+        Invite = "https://discord.gg/BhXZzkPGYk", 
+        RememberJoins = true
+     },
+     KeySystem = true, 
+     KeySettings = {
+        Title = "KEY",
+        Subtitle = "Key System",
+        Note = "https://discord.gg/BhXZzkPGYk",
+        FileName = "Key", 
+        SaveKey = false, 
+        GrabKeyFromSite = false, 
+        Key = {"winter-2027"} 
+     }
+})
+
+--- TABS ERSTELLEN ---
+local Tab = Window:CreateTab("Hit Box", 18298162898)
+local Tab2 = Window:CreateTab("ESP", 18298164473)
+local Tab3 = Window:CreateTab("Aim Bot", 18312822691)
+local Tab4 = Window:CreateTab("Misc", 18314098431)
+--- TAB: INFO & STATS ---
+local TabInfo = Window:CreateTab("Info", 4483362458) -- Info Icon ID
+
+local SectionInfo = TabInfo:CreateSection("Session Information")
+
+-- Labels für Live-Daten
+local LabelUser = TabInfo:CreateLabel("Player: " .. game.Players.LocalPlayer.Name)
+local LabelExecutor = TabInfo:CreateLabel("Executed with: " .. (identifyexecutor and identifyexecutor() or "Unknown Executor"))
+local LabelPing = TabInfo:CreateLabel("Ping: Checking...")
+local LabelFPS = TabInfo:CreateLabel("FPS: Checking...") -- FPS auch im Tab anzeigen
+
+--- FPS OVERLAY (Oben Rechts, Grün) ---
+local ScreenGui = Instance.new("ScreenGui")
+local FPSLabel = Instance.new("TextLabel")
+
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.Name = "WinterHub_FPS"
+
+FPSLabel.Parent = ScreenGui
+FPSLabel.Position = UDim2.new(1, -150, 0, 10) -- 150 Pixel von rechts, 10 von oben
+FPSLabel.Size = UDim2.new(0, 140, 0, 30)
+FPSLabel.BackgroundTransparency = 1
+FPSLabel.TextColor3 = Color3.fromRGB(0, 255, 0) -- Reines Grün
+FPSLabel.TextSize = 18
+FPSLabel.Font = Enum.Font.Code -- Monospace Look für Stats
+FPSLabel.TextXAlignment = Enum.TextXAlignment.Right
+FPSLabel.Text = "FPS: ..."
+-- Optional: Text-Outline für bessere Lesbarkeit
+FPSLabel.TextStrokeTransparency = 0
+FPSLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+
+-- Live-Update Loop für Ping und FPS
+task.spawn(function()
+    local RunService = game:GetService("RunService")
+    while task.wait(1) do
+        -- Ping berechnen
+        local pingValue = "N/A"
+        pcall(function()
+            pingValue = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
+        end)
+        LabelPing:Set("Ping: " .. pingValue .. " ms")
+
+        -- FPS berechnen
+        local fps = math.floor(1 / RunService.RenderStepped:Wait())
+        LabelFPS:Set("FPS: " .. fps)
+        FPSLabel.Text = "FPS: " .. fps
+    end
+end)
+
+TabInfo:CreateSection("Account Status")
+local LabelAccountAge = TabInfo:CreateLabel("Account Age: " .. game.Players.LocalPlayer.AccountAge .. " Days")
+local LabelUserId = TabInfo:CreateLabel("User ID: " .. game.Players.LocalPlayer.UserId)
+
+--- TAB 1: HIT BOX ---
+local Toggle1 = Tab:CreateToggle({
+    Name = "Hit Box Toggle",
+    CurrentValue = false,
+    Flag = "Toggle1",
+    Callback = function(Value)
+        if Value == false then
+            ClearHitBox()
+        end
+        _G.HitboxEnabled = Value
+    end,
+})
+
+local Slider = Tab:CreateSlider({
+   Name = "Hit Box Size",
+   Range = {0, 50},
+   Increment = 0.5,
+   Suffix = " Studs",
+   CurrentValue = 20,
+   Flag = "Slider", 
+   Callback = function(Value)
+    _G.HSize = Value
+   end,
+})
+
+local Slider99 = Tab:CreateSlider({
+    Name = "Hit Box Head Size",
+    Range = {0,6},
+    Increment = 0.5,
+    Suffix = " Studs",
+    CurrentValue = 5,
+    Flag = "Slider99", 
+    Callback = function(Value)
+         _G.Size = Value
+    end,
+})
+
+local Slider2 = Tab:CreateSlider({
+    Name = "Transparency",
+    Range = {0, 1},
+    Increment = 0.1,
+    Suffix = "",
+    CurrentValue = 0.7,
+    Flag = "Slider2", 
+    Callback = function(Value)
+        if _G.HitboxEnabled == true then
+           _G.Transparency = Value
+        end   
+    end,
+})
+
+local Dropdown = Tab:CreateDropdown({
+   Name = "Hit Box Type",
+   Options = {"Head","HumanoidRootPart"},
+   CurrentOption = {"HumanoidRootPart"},
+   MultipleOptions = false,
+   Flag = "Dropdown", 
+   Callback = function(Option)
+    if tostring(Option[1]) == "Head" then
+        _G.HitboxType = 2
+    else 
+        _G.HitboxType = 1
+    end
+   end,
+})
+
+--- TAB 2: ESP ---
+local Button = Tab2:CreateButton({
+    Name = "Use UnnamedESP",
+    Callback = function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/ic3w0lf22/Unnamed-ESP/master/UnnamedESP.lua'))()
+    end,
+})
+
+local Label = Tab2:CreateLabel("ESP")
+
+local Toggle2 = Tab2:CreateToggle({
+    Name = "ESP Toggle",
+    CurrentValue = false,
+    Flag = "Toggle2",
+    Callback = function(Value)
+        if Value == false then
+            _G.EspEnabled = false
+            DeleteESP()
+        else
+            _G.EspEnabled = true
+       end
+    end,
+})
+
+local Toggle3 = Tab2:CreateToggle({
+   Name = "ESP Visible Check",
+   CurrentValue = false,
+   Flag = "Toggle3",
+   Callback = function(Value)
+    _G.EspVisibleCheck = Value
+    ESPDethMode()
+   end,
+})
+
+local LabelTracer = Tab2:CreateLabel("Tracer Config")
+
+local Toggle4 = Tab2:CreateToggle({
+   Name = "Tracer Toggle",
+   CurrentValue = false,
+   Flag = "Toggle4",
+   Callback = function(Value)
+       _G.TracersVisible = Value
+   end,
+})
+
+local Toggle7 = Tab2:CreateToggle({
+    Name = "Tracer Team Check",
+    CurrentValue = false,
+    Flag = "Toggle7",
+    Callback = function(Value)
+        _G.TeamCheck = Value
+    end,
+})
+
+local Slider4 = Tab2:CreateSlider({
+   Name = "Tracer Transparency",
+   Range = {0, 1},
+   Increment = 0.1,
+   Suffix = "",
+   CurrentValue = 0.7,
+   Flag = "Slider4", 
+   Callback = function(Value)
+    _G.TracerTransparency = Value
+   end,
+})
+
+local Slider90 = Tab2:CreateSlider({
+    Name = "Tracer Thickness",
+    Range = {0, 100},
+    Increment = 1,
+    Suffix = "",
+    CurrentValue = 1,
+    Flag = "Slider90", 
+    Callback = function(Value)
+        _G.TracerThickness = Value
+    end,
+})
+
+local Dropdown2 = Tab2:CreateDropdown({
+   Name = "Tracers Position",
+   Options = {"From Mouse","From Center","From Bottom"},
+   CurrentOption = {"From Bottom"},
+   MultipleOptions = false,
+   Flag = "Dropdown2", 
+   Callback = function(Option)
+    local opt = tostring(Option[1])
+    _G.FromMouse = (opt == "From Mouse")
+    _G.FromCenter = (opt == "From Center")
+    _G.FromBottom = (opt == "From Bottom")
+   end,
+})
+
+local ColorPicker1 = Tab2:CreateColorPicker({
+    Name = "Tracer Color",
+    Color = Color3.fromRGB(255, 80, 10),
+    Flag = "ColorPicker1", 
+    Callback = function(Value)
+        _G.TracerColor = Value
+    end
+})
+
+local Keybind1 = Tab2:CreateKeybind({
+    Name = "Tracer Keybind",
+    CurrentKeybind = "Q",
+    HoldToInteract = false,
+    Flag = "Keybind1", 
+    Callback = function(Keybind)
+        _G.TracersVisible = not _G.TracersVisible
+    end,
+})
+
+--- TAB 3: AIM BOT ---
+local Labelaims = Tab3:CreateLabel("AimBot Setting")
+local ParagraphAim = Tab3:CreateParagraph({Title = "", Content = "Right Click to Use AimBot"})
+
+local Toggleaim = Tab3:CreateToggle({
+    Name = "AimBot Enabled",
+    CurrentValue = false,
+    Flag = "Toggleaim",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.Settings.Enabled = Value
+    end,
+})
+
+local Toggleaim1 = Tab3:CreateToggle({
+   Name = "AimBot Toggle",
+   CurrentValue = false,
+   Flag = "Toggleaim1",
+   Callback = function(Value)
+     ExunysDeveloperAimbot.Settings.Toggle = Value      
+   end,
+})
+
+local Dropdownaim2 = Tab3:CreateDropdown({
+    Name = "AimBot Lock Part",
+    Options = partNames,
+    CurrentOption = {"Head"},
+    MultipleOptions = false,
+    Flag = "Dropdownaim2", 
+    Callback = function(Option)
+        ExunysDeveloperAimbot.Settings.LockPart = tostring(Option[1])
+    end,
+})
+
+local Toggleaim2 = Tab3:CreateToggle({
+    Name = "AimBot Team Check",
+    CurrentValue = false,
+    Flag = "Toggleaim2",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.Settings.TeamCheck = Value        
+    end,
+})
+
+local Toggleaim3 = Tab3:CreateToggle({
+    Name = "AimBot Alive Check",
+    CurrentValue = true,
+    Flag = "Toggleaim3",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.Settings.AliveCheck = Value        
+    end,
+})
+
+local Toggleaim4 = Tab3:CreateToggle({
+    Name = "AimBot Wall Check",
+    CurrentValue = false,
+    Flag = "Toggleaim4",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.Settings.WallCheck = Value        
+    end,
+})
+
+local Toggleaim5 = Tab3:CreateToggle({
+    Name = "AimBot Prediction",
+    CurrentValue = false,
+    Flag = "Toggleaim5",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.Settings.OffsetToMoveDirection = Value        
+    end,
+})
+
+local ParagraphPred = Tab3:CreateParagraph({Title = "", Content = "AimBot Prediction is used to predict the bullet's falling point to help increase the hit rate when the enemy moves!"})
+
+local Slideraim = Tab3:CreateSlider({
+    Name = "AimBot Amplitude",
+    Range = {1, 30},
+    Increment = 1,
+    Suffix = "",
+    CurrentValue = 15,
+    Flag = "Slideraim",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.Settings.OffsetToMoveDirection = Value        
+    end,
+})
+
+local Dropdownaim = Tab3:CreateDropdown({
+    Name = "AimBot Lock Mode",
+    Options = {"CFrame","mousemoverel"},
+    CurrentOption = {"CFrame"},
+    MultipleOptions = false,
+    Flag = "Dropdownaim", 
+    Callback = function(Option)
+       if tostring(Option[1]) == "CFrame" then
+            ExunysDeveloperAimbot.Settings.LockMode = 1   
+        else
+            ExunysDeveloperAimbot.Settings.LockMode = 2   
+       end
+    end,
+})
+
+local Slideraims = Tab3:CreateSlider({
+    Name = "AimBot CFrame Sensitivity",
+    Range = {0, 4},
+    Increment = 0.1,
+    Suffix = "",
+    CurrentValue = 0,
+    Flag = "Slideraims",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.Settings.Sensitivity = Value        
+    end,
+})
+
+local Slideraims2 = Tab3:CreateSlider({
+    Name = "AimBot mousemoverel Sensitivity",
+    Range = {0, 4},
+    Increment = 0.1,
+    Suffix = "",
+    CurrentValue = 3.5,
+    Flag = "Slideraims2",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.Settings.Sensitivity2 = Value        
+    end,
+})
+
+local LabelFOV = Tab3:CreateLabel("AimBot FOV Settings")
+
+local Toggleaim7 = Tab3:CreateToggle({
+    Name = "FOV Enabled",
+    CurrentValue = true,
+    Flag = "Toggleaim7",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.FOVSettings.Enabled = Value        
+    end,
+})
+
+local Toggleaim8 = Tab3:CreateToggle({
+   Name = "FOV Visible",
+   CurrentValue = true,
+   Flag = "Toggleaim8",
+   Callback = function(Value)
+       ExunysDeveloperAimbot.FOVSettings.Visible = Value        
+   end,
+})
+
+local Slideraims4 = Tab3:CreateSlider({
+    Name = "FOV Radius",
+    Range = {0, 180},
+    Increment = 10,
+    Suffix = "",
+    CurrentValue = 90,
+    Flag = "Slideraims4",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.FOVSettings.Radius = Value
+    end,
+})
+
+local ColorPicker3 = Tab3:CreateColorPicker({
+    Name = "FOV Color",
+    Color = Color3.fromRGB(255,255,255),
+    Flag = "ColorPicker3", 
+    Callback = function(Value)
+        ExunysDeveloperAimbot.FOVSettings.Color = Value
+    end
+})
+
+local ColorPicker4 = Tab3:CreateColorPicker({
+    Name = "FOV Outline Color",
+    Color = Color3.fromRGB(0, 0, 0),
+    Flag = "ColorPicker4", 
+    Callback = function(Value)
+        ExunysDeveloperAimbot.FOVSettings.OutlineColor = Value
+    end
+})
+
+local ColorPicker55 = Tab3:CreateColorPicker({
+    Name = "FOV Locked Color",
+    Color = Color3.fromRGB(255, 150, 150),
+    Flag = "ColorPicker55", 
+    Callback = function(Value)
+        ExunysDeveloperAimbot.FOVSettings.LockedColor = Value
+    end
+})
+
+local Slideraims6 = Tab3:CreateSlider({
+    Name = "FOV Thickness",
+    Range = {1, 100},
+    Increment = 1,
+    Suffix = "",
+    CurrentValue = 1,
+    Flag = "Slideraims6",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.FOVSettings.Thickness = Value
+    end,
+})
+
+local Toggleaim10 = Tab3:CreateToggle({
+    Name = "FOV Rainbow Color Toggle",
+    CurrentValue = false,
+    Flag = "Toggleaim10",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.FOVSettings.RainbowColor = Value        
+    end,
+})
+
+local Toggleaim11 = Tab3:CreateToggle({
+    Name = "FOV Rainbow Outline Color Toggle",
+    CurrentValue = false,
+    Flag = "Toggleaim11",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.FOVSettings.RainbowOutlineColor = Value        
+    end,
+})
+
+local Toggleaim9 = Tab3:CreateToggle({
+    Name = "FOV Filled",
+    CurrentValue = false,
+    Flag = "Toggleaim9",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.FOVSettings.Filled = Value        
+    end,
+})
+
+local Slideraims65 = Tab3:CreateSlider({
+    Name = "FOV Transparency",
+    Range = {0, 1},
+    Increment = 0.1,
+    Suffix = "",
+    CurrentValue = 1,
+    Flag = "Slideraims65",
+    Callback = function(Value)
+        ExunysDeveloperAimbot.FOVSettings.Transparency = Value
+    end,
+})
+
+--- TAB 4: MISC ---
+local Button2 = Tab4:CreateButton({
+    Name = "Use Infinite Yield",
+    Callback = function()
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source'))()
+    end,
+})
+
+local Button3 = Tab4:CreateButton({
+    Name = "Use CMD-X",
+    Callback = function()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/CMD-X/CMD-X/master/Source",true))()
+    end,
+})
+
+local Button6 = Tab4:CreateButton({
+    Name = "Save Current Setting",
+    Callback = function()        
+        pcall(function()
+            delfile("UH_Save\\Universal_HUB_Save.rfld")
+            task.wait(1)
+            Rayfield:LoadConfiguration()
+            Rayfield:Notify({
+                Title = "INFO",
+                Content = "Saving...",
+                Duration = 5,
+                Image = 18315824167,
+             })  
+         end)      
+         task.wait(6)
+        Rayfield:Notify({
+            Title = "INFO",
+            Content = "Saved!",
+            Duration = 6.5,
+            Image = 18315824167,
+         })
+    end,
+})
+
+local Button4 = Tab4:CreateButton({
+    Name = "Load Current Setting",
+    Callback = function()  
+        pcall(function()
+            Rayfield:LoadConfiguration()
+            Rayfield:Notify({
+                Title = "INFO",
+                Content = "Loading...",
+                Duration = 5,
+                Image = 18315824167,
+             })     
+         end)      
+        task.wait(5)
+        Rayfield:Notify({
+            Title = "INFO",
+            Content = "Loaded!",
+            Duration = 6.5,
+            Image = 18315824167,
+         })         
+    end,
+})
+
+local Button5 = Tab4:CreateButton({
+    Name = "Delete Current Setting",
+    Callback = function()      
+        pcall(function()
+            delfile("UH_Save\\Universal_HUB_Save.rfld")
+            task.wait(1)
+            Rayfield:Notify({
+            Title = "INFO",
+            Content = "Deleting...",
+            Duration = 5,
+            Image = 18315824167,
+         })
+        end) 
+        task.wait(4)
+        Rayfield:Notify({
+            Title = "INFO",
+            Content = "Deleted!",
+            Duration = 6.5,
+            Image = 18315824167,
+         })
+    end,
+})
+
+--- TAB 5: MOVEMENT ---
+local Tab5 = Window:CreateTab("Movement", 9525535526)
+
+_G.Speed = 16
+_G.Jump = 50
+_G.FlyEnabled = false
+_G.FlySpeed = 50
+
+-- WalkSpeed Slider
+Tab5:CreateSlider({
+   Name = "Walk Speed",
+   Range = {16, 1000},
+   Increment = 1,
+   Suffix = " Speed",
+   CurrentValue = 16,
+   Flag = "SpeedSlider",
+   Callback = function(Value)
+       _G.Speed = Value
+   end,
+})
+
+-- Jump Power Slider
+Tab5:CreateSlider({
+   Name = "Jump Power",
+   Range = {50, 1000},
+   Increment = 1,
+   Suffix = " Power",
+   CurrentValue = 50,
+   Flag = "JumpSlider",
+   Callback = function(Value)
+       _G.Jump = Value
+   end,
+})
+
+-- Fly Toggle
+Tab5:CreateToggle({
+   Name = "Fly Enabled",
+   CurrentValue = false,
+   Flag = "FlyToggle",
+   Callback = function(Value)
+       _G.FlyEnabled = Value
+       local player = game.Players.LocalPlayer
+       local char = player.Character or player.CharacterAdded:Wait()
+       local root = char:WaitForChild("HumanoidRootPart")
+       
+       if Value then
+           local bv = Instance.new("BodyVelocity")
+           bv.Name = "FlyVelocity"
+           bv.Velocity = Vector3.new(0,0,0)
+           bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+           bv.Parent = root
+           
+           local bg = Instance.new("BodyGyro")
+           bg.Name = "FlyGyro"
+           bg.P = 9e4
+           bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+           bg.CFrame = root.CFrame
+           bg.Parent = root
+           
+           task.spawn(function()
+               while _G.FlyEnabled do
+                   local camera = workspace.CurrentCamera
+                   local moveDir = Vector3.new(0,0,0)
+                   
+                   -- Fly
+                   if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.W) then
+                       moveDir = moveDir + camera.CFrame.LookVector
+                   end
+                   if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.S) then
+                       moveDir = moveDir - camera.CFrame.LookVector
+                   end
+                   if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.A) then
+                       moveDir = moveDir - camera.CFrame.RightVector
+                   end
+                   if game:GetService("UserInputService"):IsKeyDown(Enum.KeyCode.D) then
+                       moveDir = moveDir + camera.CFrame.RightVector
+                   end
+                   
+                   bv.Velocity = moveDir * _G.FlySpeed
+                   bg.CFrame = camera.CFrame
+                   task.wait()
+               end
+               bv:Destroy()
+               bg:Destroy()
+           end)
+       end
+   end,
+})
+
+-- Fly Speed Slider
+Tab5:CreateSlider({
+   Name = "Fly Speed",
+   Range = {10, 500},
+   Increment = 5,
+   Suffix = " Speed",
+   CurrentValue = 50,
+   Flag = "FlySpeedSlider",
+   Callback = function(Value)
+       _G.FlySpeed = Value
+   end,
+})
+
+-- Speed, Jump und Fly Update Loop
+task.spawn(function()
+    while task.wait() do
+        pcall(function()
+            local char = game.Players.LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.WalkSpeed = _G.Speed
+                char.Humanoid.JumpPower = _G.Jump
+                char.Humanoid.UseJumpPower = true
+            end
+        end)
+    end
+end)
+
+-- Ganz unten am Ende des Scripts einfügen
+task.wait(1) -- Kurze Pause, damit die anderen Popups Platz machen
+
+Rayfield:Notify({
+    Title = "HUB CREDITS",
+    Content = "This Hub was created by: Justin & Winter",
+    Duration = 8,
+    Image = 4483362458, -- Info Icon
+    Actions = {
+        Ignore = {
+            Name = "Close",
+            Callback = function()
+                print("Credits acknowledged")
+            end
+        },
+    },
+})
+
+print("---------------------------------------")
+print("Universal Hub successfully executed!")
+print("Created by: Justin & Winter")
+print("---------------------------------------")
+
+print([[
+
+ /$$      /$$ /$$             /$$                        
+| $$  /$ | $$|__/            | $$                        
+| $$ /$$$| $$ /$$ /$$$$$$$  /$$$$$$    /$$$$$$   /$$$$$$ 
+| $$/$$ $$ $$| $$| $$__  $$|_  $$_/   /$$__  $$ /$$__  $$
+| $$$$_  $$$$| $$| $$  \ $$  | $$    | $$$$$$$$| $$  \__/
+| $$$/ \  $$$| $$| $$  | $$  | $$ /$$| $$_____/| $$      
+| $$/   \  $$| $$| $$  | $$  |  $$$$/|  $$$$$$$| $$      
+|__/     \__/|__/|__/  |__/   \___/   \_______/|__/      
+                                                         
+                                                         
+]])
